@@ -15,6 +15,14 @@ class CommandType(StrEnum):
     PERSIST = "persist"
     SLEEP = "sleep"
 
+class BeaconMeta(BaseModel):
+    hostname: str
+    os: str
+    username: str
+    pid: int
+    internal_ip: str
+    arch: str
+
 class BeaconRecord(BeaconMeta):
     id: str
     first_seen: str
