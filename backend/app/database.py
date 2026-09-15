@@ -36,5 +36,22 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY (beacon_id) REFERENCES beacons(id)
 );
 
-
 """
+async def init_db() -> None:
+    settings.DATABSE_PATH.parent.mkdir(parents = True, exists_ok = True)
+    async with aiosqlite.connect(settings.DATABASE_PATH) as db:
+        await db.executescript(SCHEMA)
+        await db.execute("PRAGMA journa_mode=WAL")
+        await db.execute("PRAGMA foreign_keys=ON")
+        await db.commit()
+    
+@asynccontextmanager
+async def get_db() -> AsyncIterator[aiosqlite.Connection]:
+    db= await aiosqlite.connect(settings.DATABASE_PATH)
+    db.row_factory = aiosqlite.Row
+    await db.execute("PRAGMA foreign_keys=ON")
+    try:
+        yield db
+    finally:
+        await db.close()
+        
