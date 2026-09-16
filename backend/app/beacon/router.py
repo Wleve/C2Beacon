@@ -55,13 +55,66 @@ async def _receive_messages(
             )
             async with get_db as db:
                 await TaskManager.store_result(tr)
+            if hasattr(ops_broadcast, 'broadcast'):
+                await ops_broadcast.broadcast(
+                    {
+                        "type" : "task.result",
+                        "payload": tr.model_dump(),
+                    }
+                )
         elif MessageType == 'HEARTBEAT':
-            registry.update_last_seen(beacon_id)
-    
+            async with get_db as db:
+                await registry.update_last_seen(beacon_id)
+            if hasattr(ops_broadcast, 'broadcast'):
+                    await ops_broadcast.broadcast(
+                        {
+                            "type" : "heartbeat",
+                            "payload": {"id": beacon_id},
+                        }
+                    )
 
 @router.websocket("/beacon")
 async def beacon_websocket(ws: WebSocket) -> None:
-    pass
+    await ws.accept
+        
+    registry :BeaconRegistry = ws.app.state.registry
+    task_manager: TaskManager = ws.app.state.ask_manager
+    ops_manager = ws.app.state.ops_manager    
+    beacon_id = str | None = None
+    
+    try getting message from ws
+        if fails:
+            close ws
+            
+    get meta data
+    get beacon id
+    
+    connect to db :
+        register beacon
+    log that you registered beacon
+    
+    if it has an op manager
+        dump metadata and beacon id
+        
+        wait for ops manager to receive "beacon_connected" beacon record
+        
+    send task = ? 
+    receive task= ?
+    
+    find all done and pending tasks 
+    
+    cancel all tasks in pending
+    raise exc for all done tasks? not sure
+
+    except WebSocketDisconnect
+    
+    except ValueError
+    
+    finally:
+        unregister beacon and remove queue
+        
+        if has ops manager then send a message "beacon_disconnected" beacon_id
+    
 
 
 
