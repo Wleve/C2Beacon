@@ -82,33 +82,35 @@ async def beacon_websocket(ws: WebSocket) -> None:
     ops_manager = ws.app.state.ops_manager    
     beacon_id = str | None = None
     
-    try getting message from ws
-        if fails:
-            close ws
-            
-    get meta data
-    get beacon id
+    try:
+        raw = await ws.receive_text
+        message = unpack(raw, settings.XOR_KEY)
+        if MessageType != MessageType.REGISTER:
+            await ws.close(code = 4001, reason ='Error 4001, excpected register message')
+            return
+        meta = BeaconMeta.model_validate(message.payload)
+        beacon_id = message.payload.get("id", str(uuid.uuid4()))
     
-    connect to db :
-        register beacon
-    log that you registered beacon
+        async with get_db as db:
+            await registry.register(beacon_id, meta, ws, db)
+        logger.info("Beacon registered with beacon ID: %s (%s)", (beacon_id))
     
-    if it has an op manager
-        dump metadata and beacon id
+        if it has an op manager
+            dump metadata and beacon id
         
-        wait for ops manager to receive "beacon_connected" beacon record
+            wait for ops manager to receive "beacon_connected" beacon record
         
-    send task = ? 
-    receive task= ?
+        send task = ? 
+        receive task= ?
     
-    find all done and pending tasks 
+        find all done and pending tasks 
     
-    cancel all tasks in pending
-    raise exc for all done tasks? not sure
+        cancel all tasks in pending
+        raise exc for all done tasks? not sure
 
-    except WebSocketDisconnect
+        except WebSocketDisconnect
     
-    except ValueError
+        except ValueError
     
     finally:
         unregister beacon and remove queue
