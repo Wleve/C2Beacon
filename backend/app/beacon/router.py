@@ -32,7 +32,7 @@ async def _send_tasks(
             
             
         )
-        await ws.send_text(message, settings.XOR_KEY)
+        await ws.send_text(pack(message, settings.XOR_KEY))
         
     
 
@@ -54,7 +54,7 @@ async def _receive_messages(
                 error = message.payload.get('error'),
             )
             async with get_db as db:
-                await TaskManager.store_result(tr)
+                await task_manager.store_result(tr)
             if hasattr(ops_broadcast, 'broadcast'):
                 await ops_broadcast.broadcast(
                     {
@@ -93,29 +93,53 @@ async def beacon_websocket(ws: WebSocket) -> None:
     
         async with get_db as db:
             await registry.register(beacon_id, meta, ws, db)
-        logger.info("Beacon registered with beacon ID: %s (%s)", (beacon_id))
+        logger.info("Beacon registered with beacon ID: %s (%s)", (beacon_id, meta.hostname))
     
-        if it has an op manager
-            dump metadata and beacon id
+        if hasattr(ops_manager, 'broadcast'):
+            beacon_record = meta.model_dump()
+            beacon_record['id'] = beacon_id
         
-            wait for ops manager to receive "beacon_connected" beacon record
+            await ops_manager.broadcast(
+            {
+                "type" : "beacon_connected",
+                "payload": beacon_record,
+            })
         
-        send task = ? 
-        receive task= ?
-    
-        find all done and pending tasks 
-    
-        cancel all tasks in pending
-        raise exc for all done tasks? not sure
+        send_task = asyncio.create_task(_send_tasks(ws, beacon_id, task_manager,))
+        receive_msg= asyncio.create_task(_receive_messages(ws, beacon_id, registry,task_manager, ops_manager))
+        
 
-        except WebSocketDisconnect
     
-        except ValueError
+        done, pending = await asyncio.wait(
+            [send_task, receive_msg],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+        for task in done:
+            if (exc := task.exception()) is not None:
+                raise exc
+        
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket Disconnected for Beacon %s (%s)", (beacon_id, meta))
+    
+    except ValueError:
+        logger.info("Protocol error for Beacon %s (%s)", (beacon_id, meta))
+        
     
     finally:
-        unregister beacon and remove queue
+        if beacon_id:
+            async with get_db as db:
+                await registry.unregister(beacon_id, db)
+            task_manager.remove_queue(beacon_id)
         
-        if has ops manager then send a message "beacon_disconnected" beacon_id
+        if hasattr(ops_manager, "broadcast"):
+            await ops_manager.broadcast(
+                        {
+                            "type" : "beacon_disconnected",
+                            "payload": {"id" : beacon_id}
+                        })
     
 
 
