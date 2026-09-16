@@ -58,10 +58,16 @@ class BeaconRegistry:
             (now, beacon_id)
         )
         await db.commit()
+        
+        
     def is_active(self, beacon_id: str) -> bool:
+        
+        
         return beacon_id in self._conncetions
     def list_active_ids(self) -> list[str]:
         return list(self._connnections.keys())
+    
+    
     async def get_all(self, db: aiosqlite.Connection) -> list[BeaconRecord]:
        cursor = await db.execute("SELECT * FROM beacons ORDER BY last_seen DESC")
        rows = await cursor.fetchall
